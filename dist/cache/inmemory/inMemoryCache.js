@@ -23,6 +23,13 @@ var InMemoryCache = (function (_super) {
         _this.assumeImmutableResults = true;
         _this.makeVar = makeVar;
         _this.txCount = 0;
+        _this.checkAndExecuteCacheUpdateCallback = function (state) {
+            var _a;
+            var windowWithCacheLens = window;
+            if ((_a = windowWithCacheLens === null || windowWithCacheLens === void 0 ? void 0 : windowWithCacheLens.__CACHE_LENS__) === null || _a === void 0 ? void 0 : _a.cacheUpdateCallback) {
+                windowWithCacheLens.__CACHE_LENS__.cacheUpdateCallback(state);
+            }
+        };
         _this.config = normalizeConfig(config);
         _this.addTypename = !!_this.config.addTypename;
         _this.policies = new Policies({
@@ -100,8 +107,11 @@ var InMemoryCache = (function (_super) {
             return this.storeWriter.writeToStore(this.data, options);
         }
         finally {
-            if (!--this.txCount && options.broadcast !== false) {
-                this.broadcastWatches();
+            if (!--this.txCount) {
+                if (options.broadcast !== false) {
+                    this.broadcastWatches();
+                }
+                this.checkAndExecuteCacheUpdateCallback(this.extract());
             }
         }
     };
@@ -117,8 +127,11 @@ var InMemoryCache = (function (_super) {
             return store.modify(options.id || "ROOT_QUERY", options.fields);
         }
         finally {
-            if (!--this.txCount && options.broadcast !== false) {
-                this.broadcastWatches();
+            if (!--this.txCount) {
+                if (options.broadcast !== false) {
+                    this.broadcastWatches();
+                }
+                this.checkAndExecuteCacheUpdateCallback(this.extract());
             }
         }
     };
@@ -182,8 +195,11 @@ var InMemoryCache = (function (_super) {
             return this.optimisticData.evict(options, this.data);
         }
         finally {
-            if (!--this.txCount && options.broadcast !== false) {
-                this.broadcastWatches();
+            if (!--this.txCount) {
+                if (options.broadcast !== false) {
+                    this.broadcastWatches();
+                }
+                this.checkAndExecuteCacheUpdateCallback(this.extract());
             }
         }
     };
@@ -198,6 +214,7 @@ var InMemoryCache = (function (_super) {
         }
         else {
             this.broadcastWatches();
+            this.checkAndExecuteCacheUpdateCallback(this.extract());
         }
         return Promise.resolve();
     };
@@ -206,6 +223,7 @@ var InMemoryCache = (function (_super) {
         if (newOptimisticData !== this.optimisticData) {
             this.optimisticData = newOptimisticData;
             this.broadcastWatches();
+            this.checkAndExecuteCacheUpdateCallback(this.extract());
         }
     };
     InMemoryCache.prototype.batch = function (options) {
@@ -234,6 +252,9 @@ var InMemoryCache = (function (_super) {
                     return false;
                 } }));
         }
+        if (!this.txCount) {
+            this.checkAndExecuteCacheUpdateCallback(this.extract());
+        }
         if (typeof optimistic === "string") {
             this.optimisticData = this.optimisticData.addLayer(optimistic, perform);
         }
@@ -261,6 +282,7 @@ var InMemoryCache = (function (_super) {
         else {
             this.broadcastWatches(options);
         }
+        this.checkAndExecuteCacheUpdateCallback(this.extract());
         return updateResult;
     };
     InMemoryCache.prototype.performTransaction = function (update, optimisticId) {

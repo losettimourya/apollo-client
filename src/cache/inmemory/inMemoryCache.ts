@@ -26,6 +26,8 @@ import { Policies } from "./policies.js";
 import { hasOwn, normalizeConfig, shouldCanonizeResults } from "./helpers.js";
 import { canonicalStringify } from "./object-canon.js";
 import type { OperationVariables } from "../../core/index.js";
+import type { CacheState } from "../../utilities/types/CacheLens.js";
+import { WindowWithCacheLens } from "../../utilities/types/CacheLens.js";
 
 type BroadcastOptions = Pick<
   Cache.BatchOptions<InMemoryCache>,
@@ -204,8 +206,12 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       ++this.txCount;
       return this.storeWriter.writeToStore(this.data, options);
     } finally {
-      if (!--this.txCount && options.broadcast !== false) {
+      if (!--this.txCount) {
+
+        if(options.broadcast !== false) {
         this.broadcastWatches();
+        }
+        this.checkAndExecuteCacheUpdateCallback(this.extract());
       }
     }
   }
@@ -232,8 +238,12 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       ++this.txCount;
       return store.modify(options.id || "ROOT_QUERY", options.fields);
     } finally {
-      if (!--this.txCount && options.broadcast !== false) {
+      if (!--this.txCount) {
+
+        if(options.broadcast !== false) {
         this.broadcastWatches();
+        }
+        this.checkAndExecuteCacheUpdateCallback(this.extract());
       }
     }
   }
@@ -359,8 +369,12 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       // this.optimisticData) do not escape their optimistic Layer.
       return this.optimisticData.evict(options, this.data);
     } finally {
-      if (!--this.txCount && options.broadcast !== false) {
+      if (!--this.txCount) {
+
+        if(options.broadcast !== false) {
         this.broadcastWatches();
+        }
+        this.checkAndExecuteCacheUpdateCallback(this.extract());
       }
     }
   }
@@ -384,6 +398,7 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       // reestablished after resetting the cache. To prevent this broadcast and
       // cancel all watches, pass true for options.discardWatches.
       this.broadcastWatches();
+      this.checkAndExecuteCacheUpdateCallback(this.extract());
     }
 
     return Promise.resolve();
@@ -394,6 +409,7 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
     if (newOptimisticData !== this.optimisticData) {
       this.optimisticData = newOptimisticData;
       this.broadcastWatches();
+      this.checkAndExecuteCacheUpdateCallback(this.extract());
     }
   }
 
@@ -446,6 +462,10 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       });
     }
 
+    if(!this.txCount) {
+      this.checkAndExecuteCacheUpdateCallback(this.extract());
+    }
+
     if (typeof optimistic === "string") {
       // Note that there can be multiple layers with the same optimistic ID.
       // When removeOptimistic(id) is called for that id, all matching layers
@@ -496,6 +516,7 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       // options.onWatchUpdated.
       this.broadcastWatches(options);
     }
+    this.checkAndExecuteCacheUpdateCallback(this.extract());
 
     return updateResult!;
   }
@@ -519,6 +540,14 @@ export class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
       this.watches.forEach((c) => this.maybeBroadcastWatch(c, options));
     }
   }
+
+  protected checkAndExecuteCacheUpdateCallback = <T,>(state: CacheState<T>) => {
+    const windowWithCacheLens = window as WindowWithCacheLens<T>;
+    if (windowWithCacheLens?.__CACHE_LENS__?.cacheUpdateCallback) {
+      // console.log('Cache update callback exists and is being executed with state:', state);
+      windowWithCacheLens.__CACHE_LENS__.cacheUpdateCallback(state);
+    }
+  };
 
   private addFragmentsToDocument(document: DocumentNode) {
     const { fragments } = this.config;

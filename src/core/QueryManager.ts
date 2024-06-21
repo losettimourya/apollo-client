@@ -74,6 +74,8 @@ import {
 import type { ApolloErrorOptions } from "../errors/index.js";
 import { PROTOCOL_ERRORS_SYMBOL } from "../errors/index.js";
 import { print } from "../utilities/index.js";
+import type { CacheState } from "../utilities/types/CacheLens.js";
+import { WindowWithCacheLens } from "../utilities/types/CacheLens.js";
 
 const { hasOwnProperty } = Object.prototype;
 
@@ -269,6 +271,7 @@ export class QueryManager<TStore> {
     }
 
     this.broadcastQueries();
+    this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
 
     const self = this;
 
@@ -326,6 +329,7 @@ export class QueryManager<TStore> {
       ).subscribe({
         next(storeResult) {
           self.broadcastQueries();
+          self.checkAndExecuteCacheUpdateCallback(self.cache.extract());
 
           // Since mutations might receive multiple payloads from the
           // ApolloLink chain (e.g. when used with @defer),
@@ -348,6 +352,7 @@ export class QueryManager<TStore> {
           }
 
           self.broadcastQueries();
+          self.checkAndExecuteCacheUpdateCallback(self.cache.extract());
 
           reject(
             err instanceof ApolloError
@@ -795,6 +800,7 @@ export class QueryManager<TStore> {
   public stopQueryInStore(queryId: string) {
     this.stopQueryInStoreNoBroadcast(queryId);
     this.broadcastQueries();
+    this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
   }
 
   private stopQueryInStoreNoBroadcast(queryId: string) {
@@ -946,6 +952,7 @@ export class QueryManager<TStore> {
     );
 
     this.broadcastQueries();
+    this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
 
     return Promise.all(observableQueryPromises);
   }
@@ -979,6 +986,7 @@ export class QueryManager<TStore> {
           }
 
           this.broadcastQueries();
+          this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
         }
 
         const hasErrors = graphQLResultHasError(result);
@@ -1028,6 +1036,7 @@ export class QueryManager<TStore> {
   public stopQuery(queryId: string) {
     this.stopQueryNoBroadcast(queryId);
     this.broadcastQueries();
+    this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
   }
 
   private stopQueryNoBroadcast(queryId: string) {
@@ -1052,6 +1061,14 @@ export class QueryManager<TStore> {
     if (this.onBroadcast) this.onBroadcast();
     this.queries.forEach((info) => info.notify());
   }
+
+  public checkAndExecuteCacheUpdateCallback = <T,>(state: CacheState<T>) => {
+    const windowWithCacheLens = window as WindowWithCacheLens<T>;
+    if (windowWithCacheLens?.__CACHE_LENS__?.cacheUpdateCallback) {
+      // console.log('Cache update callback exists and is being executed with state:', state);
+      windowWithCacheLens.__CACHE_LENS__.cacheUpdateCallback(state);
+    }
+  };
 
   public getLocalState(): LocalState<TStore> {
     return this.localState;

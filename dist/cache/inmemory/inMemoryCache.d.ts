@@ -7,6 +7,7 @@ import type { InMemoryCacheConfig, NormalizedCacheObject } from "./types.js";
 import { makeVar } from "./reactiveVars.js";
 import { Policies } from "./policies.js";
 import type { OperationVariables } from "../../core/index.js";
+import type { CacheState } from "../../utilities/types/CacheLens.js";
 type BroadcastOptions = Pick<Cache.BatchOptions<InMemoryCache>, "optimistic" | "onWatchUpdated">;
 export declare class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
     private data;
@@ -46,6 +47,7 @@ export declare class InMemoryCache extends ApolloCache<NormalizedCacheObject> {
     performTransaction(update: (cache: InMemoryCache) => any, optimisticId?: string | null): any;
     transformDocument(document: DocumentNode): DocumentNode;
     protected broadcastWatches(options?: BroadcastOptions): void;
+    protected checkAndExecuteCacheUpdateCallback: <T>(state: CacheState<T>) => void;
     private addFragmentsToDocument;
     private addTypenameToDocument;
     private broadcastWatch;

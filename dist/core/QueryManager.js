@@ -25,6 +25,13 @@ var QueryManager = (function () {
         this.queryIdCounter = 1;
         this.requestIdCounter = 1;
         this.mutationIdCounter = 1;
+        this.checkAndExecuteCacheUpdateCallback = function (state) {
+            var _a;
+            var windowWithCacheLens = window;
+            if ((_a = windowWithCacheLens === null || windowWithCacheLens === void 0 ? void 0 : windowWithCacheLens.__CACHE_LENS__) === null || _a === void 0 ? void 0 : _a.cacheUpdateCallback) {
+                windowWithCacheLens.__CACHE_LENS__.cacheUpdateCallback(state);
+            }
+        };
         this.inFlightLinkObservables = new Map();
         var defaultDocumentTransform = new DocumentTransform(function (document) { return _this.cache.transformDocument(document); }, { cache: false });
         this.cache = cache;
@@ -96,6 +103,7 @@ var QueryManager = (function () {
                             });
                         }
                         this.broadcastQueries();
+                        this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
                         self = this;
                         return [2, new Promise(function (resolve, reject) {
                                 return asyncMap(self.getObservableFromLink(mutation, __assign(__assign({}, context), { optimisticResponse: optimisticResponse }), variables, false), function (result) {
@@ -134,6 +142,7 @@ var QueryManager = (function () {
                                 }).subscribe({
                                     next: function (storeResult) {
                                         self.broadcastQueries();
+                                        self.checkAndExecuteCacheUpdateCallback(self.cache.extract());
                                         if (!("hasNext" in storeResult) || storeResult.hasNext === false) {
                                             resolve(storeResult);
                                         }
@@ -147,6 +156,7 @@ var QueryManager = (function () {
                                             self.cache.removeOptimistic(mutationId);
                                         }
                                         self.broadcastQueries();
+                                        self.checkAndExecuteCacheUpdateCallback(self.cache.extract());
                                         reject(err instanceof ApolloError
                                             ? err
                                             : new ApolloError({
@@ -403,6 +413,7 @@ var QueryManager = (function () {
     QueryManager.prototype.stopQueryInStore = function (queryId) {
         this.stopQueryInStoreNoBroadcast(queryId);
         this.broadcastQueries();
+        this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
     };
     QueryManager.prototype.stopQueryInStoreNoBroadcast = function (queryId) {
         var queryInfo = this.queries.get(queryId);
@@ -509,6 +520,7 @@ var QueryManager = (function () {
             _this.getQuery(queryId).setDiff(null);
         });
         this.broadcastQueries();
+        this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
         return Promise.all(observableQueryPromises);
     };
     QueryManager.prototype.setObservableQuery = function (observableQuery) {
@@ -531,6 +543,7 @@ var QueryManager = (function () {
                         });
                     }
                     _this.broadcastQueries();
+                    _this.checkAndExecuteCacheUpdateCallback(_this.cache.extract());
                 }
                 var hasErrors = graphQLResultHasError(result);
                 var hasProtocolErrors = graphQLResultHasProtocolErrors(result);
@@ -567,6 +580,7 @@ var QueryManager = (function () {
     QueryManager.prototype.stopQuery = function (queryId) {
         this.stopQueryNoBroadcast(queryId);
         this.broadcastQueries();
+        this.checkAndExecuteCacheUpdateCallback(this.cache.extract());
     };
     QueryManager.prototype.stopQueryNoBroadcast = function (queryId) {
         this.stopQueryInStoreNoBroadcast(queryId);

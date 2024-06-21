@@ -8,6 +8,7 @@ import { NetworkStatus } from "./networkStatus.js";
 import type { ApolloQueryResult, OperationVariables, MutationUpdaterFunction, OnQueryUpdated, InternalRefetchQueriesInclude, InternalRefetchQueriesOptions, InternalRefetchQueriesMap } from "./types.js";
 import { LocalState } from "./LocalState.js";
 import type { QueryStoreValue } from "./QueryInfo.js";
+import type { CacheState } from "../utilities/types/CacheLens.js";
 interface MutationStoreValue {
     mutation: DocumentNode;
     variables: Record<string, any>;
@@ -109,6 +110,7 @@ export declare class QueryManager<TStore> {
     private stopQueryNoBroadcast;
     removeQuery(queryId: string): void;
     broadcastQueries(): void;
+    checkAndExecuteCacheUpdateCallback: <T>(state: CacheState<T>) => void;
     getLocalState(): LocalState<TStore>;
     protected inFlightLinkObservables: Map<string, Map<string, Observable<FetchResult>>>;
     private getObservableFromLink;
